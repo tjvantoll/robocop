@@ -5,12 +5,14 @@
 #include <Adafruit_LSM9DS1.h>
 #include <SparkFun_APDS9960.h>
 #include "Adafruit_seesaw.h"
+#include <HardwareSerial.h>
 
 // Define Notehub Product UID
 #define PRODUCT_UID "com.blues.flex_forge.production_line"
 
 // Notecard setup
 Notecard notecard;
+HardwareSerial *notecardSerial = &Serial1;  // Adjust to your MCU
 
 // Sensors
 Adafruit_BME680 bme;
@@ -21,17 +23,16 @@ Adafruit_seesaw ss;  // Seesaw I2C rotary encoder
 
 uint32_t last_position = 0;
 
-
 void setup() {
     Serial.begin(115200);
     Wire.begin();
 
-    notecard.begin();
+    notecardSerial->begin(9600);
+    notecard.begin(*notecardSerial);
     notecard.setDebugOutputStream(Serial);
 
     configureNotecard();
-    // defineNoteTemplate();
-    // initSensors();
+    initSensors();
 }
 
 void loop() {
@@ -40,23 +41,23 @@ void loop() {
     float humidity = bme.humidity;
     float pressure = bme.pressure / 100.0;
 
-    uint16_t distance_mm = distanceSensor.getDistance();
+    float distance_mm = (float)distanceSensor.getDistance();
 
     sensors_event_t accel, mag, gyro, tempEvent;
     lsm.getEvent(&accel, &mag, &gyro, &tempEvent);
 
     bool gesture_detected = apds.isGestureAvailable();
 
-    uint32_t position = ss.getEncoderPosition();
-    int32_t encoder_delta = (int32_t)(position - last_position);
-    last_position = position;
+    float position = (float)ss.getEncoderPosition();
+    float encoder_delta = position - (float)last_position;
+    last_position = (uint32_t)position;  // Still store integer for tracking
 
     // --- Send Note ---
     sendSensorDataToNotehub(temperature, humidity, pressure, distance_mm,
                             accel.acceleration.x, gyro.gyro.x,
                             gesture_detected, position, encoder_delta);
 
-    delay(5000);  // 5-second reporting interval
+    delay(20000);  // 5-second reporting interval
 }
 
 void configureNotecard() {
@@ -68,32 +69,13 @@ void configureNotecard() {
     notecard.sendRequestWithRetry(req, 5);
 }
 
-void defineNoteTemplate() {
-    J *templateReq = notecard.newRequest("note.template");
-    JAddStringToObject(templateReq, "file", "sensors.qo");
-
-    J *body = JCreateObject();
-    JAddNumberToObject(body, "temp_c", 0.0);
-    JAddNumberToObject(body, "humidity_pct", 0.0);
-    JAddNumberToObject(body, "pressure_hpa", 0.0);
-    JAddNumberToObject(body, "distance_mm", 0);
-    JAddNumberToObject(body, "accel_x_g", 0.0);
-    JAddNumberToObject(body, "gyro_x_dps", 0.0);
-    JAddBoolToObject(body, "gesture_detected", false);
-    JAddNumberToObject(body, "encoder_position", 0);
-    JAddNumberToObject(body, "encoder_delta", 0);
-
-    JAddItemToObject(templateReq, "body", body);
-
-    notecard.sendRequest(templateReq);
-}
-
 void sendSensorDataToNotehub(float temperature, float humidity, float pressure,
-                             uint16_t distance_mm, float accel_x, float gyro_x,
-                             bool gesture_detected, uint32_t position, int32_t encoder_delta) {
+                             float distance_mm, float accel_x, float gyro_x,
+                             bool gesture_detected, float position, float encoder_delta) {
 
     J *noteReq = notecard.newRequest("note.add");
-    JAddStringToObject(noteReq, "file", "sensors.qo");
+    JAddStringToObject(noteReq, "file", "sensors2.qo");
+    JAddBoolToObject(noteReq,"sync",true);
 
     J *body = JCreateObject();
     JAddNumberToObject(body, "temp_c", temperature);
@@ -114,30 +96,30 @@ void sendSensorDataToNotehub(float temperature, float humidity, float pressure,
 }
 
 void initSensors() {
-    if (!bme.begin()) {
+    if (!bme.begin(0x76)) {
         Serial.println("BME688 not found! Halting.");
-        while (1);
+        // while (1);
     }
 
     if (!distanceSensor.begin()) {
-        Serial.println("ToF sensor not found! Halting.");
-        while (1);
+        Serial.println("ToF sensor not found! Halting."); // warn..
+        // while (1);
     }
 
     if (!lsm.begin()) {
         Serial.println("LSM9DS1 not found! Halting.");
-        while (1);
+        // while (1);
     }
 
     if (!apds.init()) {
         Serial.println("APDS9960 not found! Halting.");
-        while (1);
+        // while (1);
     }
     apds.enableGestureSensor();
 
     if (!ss.begin(0x36)) {  // Default I2C address
         Serial.println("Seesaw encoder not found! Halting.");
-        while (1);
+        // while (1);
     }
 }
 
