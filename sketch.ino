@@ -21,8 +21,6 @@ Adafruit_seesaw ss;  // Seesaw I2C rotary encoder
 
 uint32_t last_position = 0;
 
-const char* DEVICE_SN = "RoboCop";
-
 
 void setup() {
     Serial.begin(115200);
@@ -32,9 +30,8 @@ void setup() {
     notecard.setDebugOutputStream(Serial);
 
     configureNotecard();
-    setDeviceSerialNumber(DEVICE_SN);
-    defineNoteTemplate();
-    initSensors();
+    // defineNoteTemplate();
+    // initSensors();
 }
 
 void loop() {
@@ -62,16 +59,11 @@ void loop() {
     delay(5000);  // 5-second reporting interval
 }
 
-void setDeviceSerialNumber(const char* serialNumber) {
-    J *envReq = notecard.newRequest("env.set");
-    JAddStringToObject(envReq, "SN", serialNumber);
-    notecard.sendRequest(envReq);
-}
-
 void configureNotecard() {
     J *req = notecard.newRequest("hub.set");
     JAddStringToObject(req, "product", PRODUCT_UID);
     JAddStringToObject(req, "mode", "continuous");
+    JAddStringToObject(req, "sn", "robocop");
 
     notecard.sendRequestWithRetry(req, 5);
 }
