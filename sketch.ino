@@ -41,7 +41,21 @@ void loop() {
     float humidity = bme.humidity;
     float pressure = bme.pressure / 100.0;
 
-    float distance_mm = (float)distanceSensor.getDistance();
+    // Start measurement
+    distanceSensor.startRanging();
+
+    // Wait for data ready
+    while (!distanceSensor.checkForDataReady()) {
+        delay(1);  // Small wait
+    }
+
+    // Read distance
+    float distance_mm = distanceSensor.getDistance();
+
+    // Clear interrupt and stop
+    distanceSensor.clearInterrupt();
+    distanceSensor.stopRanging();
+
 
     sensors_event_t accel, mag, gyro, tempEvent;
     lsm.getEvent(&accel, &mag, &gyro, &tempEvent);
