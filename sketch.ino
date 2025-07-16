@@ -101,7 +101,7 @@ void initSensors() {
         // while (1);
     }
 
-    if (!distanceSensor.begin()) {
+    if (distanceSensor.begin()) {
         Serial.println("ToF sensor not found! Halting."); // warn..
         // while (1);
     }
